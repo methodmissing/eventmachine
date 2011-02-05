@@ -114,10 +114,34 @@ extern "C" {
 	void evma_set_kqueue (int use);
 
 	uint64_t evma_get_current_loop_time();
+
+#ifdef INSTRUMENT_DTRACE
+#include "probes.h"
+static const char *event_map[] = { // Stringified event signature map for tracing consumers
+                            "timer-fired",
+                            "connection-read",
+                            "connection-unbound",
+                            "connection-accepted",
+                            "connection-completed",
+                            "loopbreak-signal",
+                            "connection-notify-readable",
+                            "connection-notify-writable",
+                            "ssl-handshake-completed",
+                            "ssl-verify",
+                            "proxy-target-unbound",
+                            "proxy-completed"
+                          };
+
+#define INSTRUMENT_EVENT_ENTRY(e) \
+   if(EVENTMACHINE_EVENT_ENTRY_ENABLED()) EVENTMACHINE_EVENT_ENTRY((unsigned long)e.signature, (char*)event_map[e.event - 100])
+#define INSTRUMENT_EVENT_RETURN(e) \
+   if(EVENTMACHINE_EVENT_RETURN_ENABLED()) EVENTMACHINE_EVENT_RETURN((unsigned long)e.signature, (char*)event_map[e.event - 100])
+#else
+#define INSTRUMENT_EVENT_ENTRY(e)
+#define INSTRUMENT_EVENT_RETURN(e)
+#endif
+
 #if __cplusplus
 }
 #endif
-
-
 #endif // __EventMachine__H_
-

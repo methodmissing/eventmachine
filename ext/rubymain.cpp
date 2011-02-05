@@ -188,8 +188,11 @@ static void event_callback_wrapper (const unsigned long signature, int event, co
 	e.data_str = data_str;
 	e.data_num = data_num;
 
-	if (!rb_ivar_defined(EmModule, Intern_at_error_handler))
+	if (!rb_ivar_defined(EmModule, Intern_at_error_handler)){
+		INSTRUMENT_EVENT_ENTRY(e);
 		event_callback(&e);
+		INSTRUMENT_EVENT_RETURN(e);
+	}
 	else
 		rb_rescue((VALUE (*)(ANYARGS))event_callback, (VALUE)&e, (VALUE (*)(ANYARGS))event_error_handler, Qnil);
 }

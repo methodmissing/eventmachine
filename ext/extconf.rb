@@ -13,6 +13,10 @@ def add_define(name)
   $defs.push("-D#{name}")
 end
 
+def instrument(framework)
+  load File.expand_path("../instrument/#{framework}.rb", __FILE__)
+end
+
 ##
 # OpenSSL:
 
@@ -126,9 +130,11 @@ when /openbsd/
   CONFIG['LDSHAREDXX'] = "$(CXX) -shared -lstdc++ -fPIC"
 
 when /darwin/
+
   # on Unix we need a g++ link, not gcc.
   # Ff line contributed by Daniel Harple.
   CONFIG['LDSHARED'] = "$(CXX) " + CONFIG['LDSHARED'].split[1..-1].join(' ')
+  instrument :dtrace
 
 when /linux/
   add_define 'HAVE_EPOLL' if have_func('epoll_create', 'sys/epoll.h')
