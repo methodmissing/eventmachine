@@ -989,6 +989,7 @@ void ConnectionDescriptor::_WriteOutboundData()
 
 		for (int i = 0; i < iovcnt; i++) {
 			if (iov[i].iov_len <= sent) {
+				if (EVENTMACHINE_DATA_SENT_ENABLED()) EVENTMACHINE_DATA_SENT((VALUE)GetBinding(), (VALUE)evma_get_current_loop_time(), (char*)iov[i].iov_base, iov[i].iov_len);
 				// Sent this page in full, free it.
 				op->Free();
 				OutboundPages.pop_front();

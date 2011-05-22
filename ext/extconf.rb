@@ -14,7 +14,7 @@ def add_define(name)
 end
 
 def instrument(framework)
-  load File.expand_path("../instrument/#{framework}.rb", __FILE__)
+  require File.expand_path("../instrument/#{framework}.rb", __FILE__)
 end
 
 ##

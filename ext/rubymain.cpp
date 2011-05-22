@@ -88,47 +88,62 @@ static inline void event_callback (struct em_event* e)
 	switch (event) {
 		case EM_CONNECTION_READ:
 		{
+			INSTRUMENT_EVENT_ENTRY(CONNECTION_READ, signature, (char*)data_str, (VALUE)data_num);
 			VALUE conn = rb_hash_aref (EmConnsHash, ULONG2NUM (signature));
 			if (conn == Qnil)
 				rb_raise (EM_eConnectionNotBound, "received %lu bytes of data for unknown signature: %lu", data_num, signature);
 			rb_funcall (conn, Intern_receive_data, 1, rb_str_new (data_str, data_num));
+			INSTRUMENT_EVENT_RETURN(CONNECTION_READ, signature, (char*)data_str, (VALUE)data_num);
 			return;
 		}
 		case EM_CONNECTION_ACCEPTED:
 		{
+			INSTRUMENT_EVENT_ENTRY(CONNECTION_ACCEPTED, signature);
 			rb_funcall (EmModule, Intern_event_callback, 3, ULONG2NUM(signature), INT2FIX(event), ULONG2NUM(data_num));
+			INSTRUMENT_EVENT_RETURN(CONNECTION_ACCEPTED, signature);
 			return;
 		}
 		case EM_CONNECTION_UNBOUND:
 		{
+			INSTRUMENT_EVENT_ENTRY(CONNECTION_UNBOUND, signature);
 			rb_funcall (EmModule, Intern_event_callback, 3, ULONG2NUM(signature), INT2FIX(event), ULONG2NUM(data_num));
+			INSTRUMENT_EVENT_RETURN(CONNECTION_UNBOUND, signature);
 			return;
 		}
 		case EM_CONNECTION_COMPLETED:
 		{
+			INSTRUMENT_EVENT_ENTRY(CONNECTION_COMPLETED, signature);
 			VALUE conn = ensure_conn(signature);
 			rb_funcall (conn, Intern_connection_completed, 0);
+			INSTRUMENT_EVENT_RETURN(CONNECTION_COMPLETED, signature);
 			return;
 		}
 		case EM_CONNECTION_NOTIFY_READABLE:
 		{
+			INSTRUMENT_EVENT_ENTRY(CONNECTION_NOTIFY_READABLE, signature);
 			VALUE conn = ensure_conn(signature);
 			rb_funcall (conn, Intern_notify_readable, 0);
+			INSTRUMENT_EVENT_RETURN(CONNECTION_NOTIFY_READABLE, signature);
 			return;
 		}
 		case EM_CONNECTION_NOTIFY_WRITABLE:
 		{
+			INSTRUMENT_EVENT_ENTRY(CONNECTION_NOTIFY_WRITABLE, signature);
 			VALUE conn = ensure_conn(signature);
 			rb_funcall (conn, Intern_notify_writable, 0);
+			INSTRUMENT_EVENT_RETURN(CONNECTION_NOTIFY_WRITABLE, signature);
 			return;
 		}
 		case EM_LOOPBREAK_SIGNAL:
 		{
+			INSTRUMENT_EVENT_ENTRY(LOOPBREAK_SIGNAL);
 			rb_funcall (EmModule, Intern_run_deferred_callbacks, 0);
+			INSTRUMENT_EVENT_RETURN(LOOPBREAK_SIGNAL);
 			return;
 		}
 		case EM_TIMER_FIRED:
 		{
+			INSTRUMENT_EVENT_ENTRY(TIMER_FIRED, signature);
 			VALUE timer = rb_funcall (EmTimersHash, Intern_delete, 1, ULONG2NUM (data_num));
 			if (timer == Qnil) {
 				rb_raise (EM_eUnknownTimerFired, "no such timer: %lu", data_num);
@@ -137,34 +152,43 @@ static inline void event_callback (struct em_event* e)
 			} else {
 				rb_funcall (timer, Intern_call, 0);
 			}
+			INSTRUMENT_EVENT_RETURN(TIMER_FIRED, signature);
 			return;
 		}
 		#ifdef WITH_SSL
 		case EM_SSL_HANDSHAKE_COMPLETED:
 		{
+			INSTRUMENT_EVENT_ENTRY(SSL_HANDSHAKE_COMPLETED, signature);
 			VALUE conn = ensure_conn(signature);
 			rb_funcall (conn, Intern_ssl_handshake_completed, 0);
+			INSTRUMENT_EVENT_RETURN(SSL_HANDSHAKE_COMPLETED, signature);
 			return;
 		}
 		case EM_SSL_VERIFY:
 		{
+			INSTRUMENT_EVENT_ENTRY(SSL_VERIFY, signature, (char*)data_str, (VALUE)data_num);
 			VALUE conn = ensure_conn(signature);
 			VALUE should_accept = rb_funcall (conn, Intern_ssl_verify_peer, 1, rb_str_new(data_str, data_num));
 			if (RTEST(should_accept))
 				evma_accept_ssl_peer (signature);
+			INSTRUMENT_EVENT_RETURN(SSL_VERIFY, signature, (char*)data_str, (VALUE)data_num);
 			return;
 		}
 		#endif
 		case EM_PROXY_TARGET_UNBOUND:
 		{
+			INSTRUMENT_EVENT_ENTRY(PROXY_TARGET_UNBOUND, signature);
 			VALUE conn = ensure_conn(signature);
 			rb_funcall (conn, Intern_proxy_target_unbound, 0);
+			INSTRUMENT_EVENT_RETURN(PROXY_TARGET_UNBOUND, signature);
 			return;
 		}
 		case EM_PROXY_COMPLETED:
 		{
+			INSTRUMENT_EVENT_ENTRY(PROXY_COMPLETED, signature);
 			VALUE conn = ensure_conn(signature);
 			rb_funcall (conn, Intern_proxy_completed, 0);
+			INSTRUMENT_EVENT_RETURN(PROXY_COMPLETED, signature);
 			return;
 		}
 	}
@@ -193,9 +217,7 @@ static void event_callback_wrapper (const unsigned long signature, int event, co
 	e.data_num = data_num;
 
 	if (!rb_ivar_defined(EmModule, Intern_at_error_handler)){
-		INSTRUMENT_EVENT_ENTRY(e);
 		event_callback(&e);
-		INSTRUMENT_EVENT_RETURN(e);
 	}
 	else
 		rb_rescue((VALUE (*)(ANYARGS))event_callback, (VALUE)&e, (VALUE (*)(ANYARGS))event_error_handler, Qnil);
@@ -284,7 +306,13 @@ t_send_data
 
 static VALUE t_send_data (VALUE self, VALUE signature, VALUE data, VALUE data_length)
 {
-	int b = evma_send_data_to_connection (NUM2ULONG (signature), StringValuePtr (data), FIX2INT (data_length));
+	unsigned long sig;
+	int len;
+	len = FIX2INT(data_length);
+	sig = NUM2ULONG(signature);
+	INSTRUMENT_EVENT_ENTRY(SEND_DATA, sig, StringValuePtr(data), len);
+	int b = evma_send_data_to_connection (sig, StringValuePtr (data), len);
+	INSTRUMENT_EVENT_RETURN(SEND_DATA, sig, b);
 	return INT2NUM (b);
 }
 
@@ -1071,7 +1099,21 @@ static VALUE t_set_heartbeat_interval (VALUE self, VALUE interval)
 	return Qfalse;
 }
 
+/************************
+t_trace
+*************************/
 
+static VALUE t_trace (VALUE self, VALUE context)
+{
+	VALUE result;
+	int status;
+	Check_Type(context, T_STRING);
+	if (!rb_block_given_p()) rb_raise(rb_eArgError, "block to trace required!");
+	INSTRUMENT_EVENT_ENTRY(TRACE, StringValuePtr(context));
+	result = rb_protect(rb_yield, self, &status);
+	INSTRUMENT_EVENT_RETURN(TRACE, StringValuePtr(context));
+	return result;
+}
 /*********************
 Init_rubyeventmachine
 *********************/
@@ -1189,6 +1231,7 @@ extern "C" void Init_rubyeventmachine()
 	rb_define_module_function (EmModule, "kqueue?", (VALUE(*)(...))t__kqueue_p, 0);
 
 	rb_define_module_function (EmModule, "ssl?", (VALUE(*)(...))t__ssl_p, 0);
+	rb_define_module_function (EmModule, "trace", (VALUE(*)(...))t_trace, 1);
 
 	rb_define_method (EmConnection, "get_outbound_data_size", (VALUE(*)(...))conn_get_outbound_data_size, 0);
 	rb_define_method (EmConnection, "associate_callback_target", (VALUE(*)(...))conn_associate_callback_target, 1);

@@ -92,11 +92,16 @@ STATIC: Bindable_t::GetObject
 
 Bindable_t *Bindable_t::GetObject (const unsigned long binding)
 {
+  INSTRUMENT_EVENT_ENTRY(GET_BINDING, binding);
   map<unsigned long, Bindable_t*>::const_iterator i = BindingBag.find (binding);
-  if (i != BindingBag.end())
+  if (i != BindingBag.end()) {
+    INSTRUMENT_EVENT_RETURN(GET_BINDING, binding);
     return i->second;
-  else
+  }
+  else {
+    INSTRUMENT_EVENT_RETURN(GET_BINDING, 0);
     return NULL;
+  }
 }
 
 

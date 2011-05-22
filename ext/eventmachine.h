@@ -117,28 +117,14 @@ extern "C" {
 
 #ifdef INSTRUMENT_DTRACE
 #include "probes.h"
-static const char *event_map[] = { // Stringified event signature map for tracing consumers
-                            "timer-fired",
-                            "connection-read",
-                            "connection-unbound",
-                            "connection-accepted",
-                            "connection-completed",
-                            "loopbreak-signal",
-                            "connection-notify-readable",
-                            "connection-notify-writable",
-                            "ssl-handshake-completed",
-                            "ssl-verify",
-                            "proxy-target-unbound",
-                            "proxy-completed"
-                          };
 
-#define INSTRUMENT_EVENT_ENTRY(e) \
-   if(EVENTMACHINE_EVENT_ENTRY_ENABLED()) EVENTMACHINE_EVENT_ENTRY((unsigned long)e.signature, (char*)event_map[e.event - 100])
-#define INSTRUMENT_EVENT_RETURN(e) \
-   if(EVENTMACHINE_EVENT_RETURN_ENABLED()) EVENTMACHINE_EVENT_RETURN((unsigned long)e.signature, (char*)event_map[e.event - 100])
+#define INSTRUMENT_EVENT_ENTRY(type, ...) \
+   if(EVENTMACHINE_##type##_ENTRY_ENABLED()) EVENTMACHINE_##type##_ENTRY((VALUE)evma_get_current_loop_time(), ##__VA_ARGS__)
+#define INSTRUMENT_EVENT_RETURN(type, ...) \
+   if(EVENTMACHINE_##type##_RETURN_ENABLED()) EVENTMACHINE_##type##_RETURN((VALUE)evma_get_current_loop_time(), ##__VA_ARGS__)
 #else
-#define INSTRUMENT_EVENT_ENTRY(e)
-#define INSTRUMENT_EVENT_RETURN(e)
+#define INSTRUMENT_EVENT_ENTRY(type, ...)
+#define INSTRUMENT_EVENT_RETURN(type, ...)
 #endif
 
 #if __cplusplus
