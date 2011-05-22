@@ -107,7 +107,7 @@ EventableDescriptor::~EventableDescriptor
 EventableDescriptor::~EventableDescriptor()
 {
 	if (NextHeartbeat)
-		MyEventMachine->ClearHeartbeat(NextHeartbeat);
+		MyEventMachine->ClearHeartbeat(NextHeartbeat, this);
 	if (EventCallback && bCallbackUnbind)
 		(*EventCallback)(GetBinding(), EM_CONNECTION_UNBOUND, NULL, UnbindReasonCode);
 	if (ProxiedFrom) {
@@ -294,7 +294,7 @@ EventableDescriptor::GetNextHeartbeat
 uint64_t EventableDescriptor::GetNextHeartbeat()
 {
 	if (NextHeartbeat)
-		MyEventMachine->ClearHeartbeat(NextHeartbeat);
+		MyEventMachine->ClearHeartbeat(NextHeartbeat, this);
 
 	NextHeartbeat = 0;
 
@@ -1225,16 +1225,18 @@ void ConnectionDescriptor::Heartbeat()
 	 */
 
 	if (bConnectPending) {
-		if ((MyEventMachine->GetCurrentLoopTime() - CreatedAt) >= PendingConnectTimeout)
+		if ((MyEventMachine->GetCurrentLoopTime() - CreatedAt) >= PendingConnectTimeout) {
 			UnbindReasonCode = ETIMEDOUT;
 			ScheduleClose (false);
 			//bCloseNow = true;
+    }
 	}
 	else {
-		if (InactivityTimeout && ((MyEventMachine->GetCurrentLoopTime() - LastActivity) >= InactivityTimeout))
+		if (InactivityTimeout && ((MyEventMachine->GetCurrentLoopTime() - LastActivity) >= InactivityTimeout)) {
 			UnbindReasonCode = ETIMEDOUT;
 			ScheduleClose (false);
 			//bCloseNow = true;
+    }
 	}
 }
 
