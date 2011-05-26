@@ -47,8 +47,3 @@ provider eventmachine {
     probe proxy__completed__entry(VALUE loop_time, VALUE signature);
     probe proxy__completed__return(VALUE loop_time, VALUE signature);
 };
-#pragma D attributes Evolving/Evolving/Common provider eventmachine provider
-#pragma D attributes Private/Private/Unknown provider eventmachine module
-#pragma D attributes Private/Private/Unknown provider eventmachine function
-#pragma D attributes Evolving/Evolving/Unknown provider eventmachine name
-#pragma D attributes Evolving/Evolving/Unknown provider eventmachine args
